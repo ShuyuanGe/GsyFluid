@@ -1,0 +1,5 @@
+add_library(invalid_free_lib STATIC invalid_free.cu)
+target_link_libraries(invalid_free_lib PRIVATE cu_check cu_memory)
+
+add_executable(invalid_free_main main.cpp)
+target_link_libraries(invalid_free_main PUBLIC invalid_free_lib cxx_precompile_header)

@@ -1,0 +1,3 @@
+add_library(cu_memory INTERFACE)
+target_link_libraries(cu_memory INTERFACE cxx_precompile_header cu_precompile_header)
+target_include_directories(cu_memory INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})

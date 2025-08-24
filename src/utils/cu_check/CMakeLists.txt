@@ -1,0 +1,3 @@
+add_library(cu_check STATIC cu_check.cu)
+target_link_libraries(cu_check PUBLIC cu_precompile_header cxx_precompile_header)
+target_include_directories(cu_check PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

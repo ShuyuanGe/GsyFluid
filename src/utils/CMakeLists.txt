@@ -1,0 +1,4 @@
+add_subdirectory(cxx_precompile_header)
+add_subdirectory(cu_precompile_header)
+add_subdirectory(cu_memory)
+add_subdirectory(cu_check)

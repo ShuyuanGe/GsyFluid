@@ -1,0 +1,3 @@
+add_library(cu_precompile_header STATIC stdafx.cu)
+target_precompile_headers(cu_precompile_header PUBLIC stdafx.cuh)
+target_include_directories(cu_precompile_header PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
