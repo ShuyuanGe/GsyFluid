@@ -25,11 +25,6 @@ class D3Q27DoubleDDFSimulator :
         static constexpr Int ny = 256;
         static constexpr Int nz = 256;
         static constexpr Int size = nx*ny*nz;
-    protected:
-        Real dftRho;
-        std::array<Real, 3> dftV;
-        cudaStream_t stream;
-        cudaEvent_t start, end;
 
         static constexpr Flag LOAD_DDF_BIT     = 1 << 0;
         static constexpr Flag REV_LOAD_DDF_BIT = 1 << 1;
@@ -40,6 +35,12 @@ class D3Q27DoubleDDFSimulator :
         static constexpr Flag STORE_DDF_BIT    = 1 << 4;
         static constexpr Flag STORE_RHO_BIT    = 1 << 5;
         static constexpr Flag STORE_U_BIT      = 1 << 6;
+    protected:
+        UInt timeStep;
+        Real dftRho;
+        std::array<Real, 3> dftV;
+        cudaStream_t stream;
+        cudaEvent_t start, end;
 
         static constexpr Flag FLUID_FLAG           = LOAD_DDF_BIT | COLLIDE_BIT | STORE_DDF_BIT | STORE_RHO_BIT | STORE_U_BIT;
         static constexpr Flag BOUNCE_BACK_BC_FLAG  = REV_LOAD_DDF_BIT | STORE_DDF_BIT;

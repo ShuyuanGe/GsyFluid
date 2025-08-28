@@ -1,5 +1,5 @@
+#include "cu_check.cuh"
 #include "srt_collision.hpp"
-#include "D3Q27DoubleDDFKernel.cuh"
 #include "D3Q27DoubleDDFSimulator.cuh"
 
 struct D3Q27DoubleDDFKernelParam
@@ -25,6 +25,7 @@ D3Q27DoubleDDFSimulator::D3Q27DoubleDDFSimulator(
     DensityBufData(size), 
     VelocityBufData(size), 
     DoubleDDFBufData(size), 
+    timeStep(0),
     dftRho(dftRho), 
     dftV(dftV)
 {
@@ -50,6 +51,19 @@ D3Q27DoubleDDFSimulator::D3Q27DoubleDDFSimulator(
         thrust::fill_n(dVyPtr, size, dftV[1]);
         thrust::fill_n(dVzPtr, size, dftV[2]);
     }
+
+    {
+        Real dftFeq[27];
+        thrust::device_ptr<Real> dSrcDDFPtr {getSrcDDFPtr()};
+        thrust::device_ptr<Real> dDstDDFPtr {getDstDDFPtr()};
+        srt::calcEqu3D<27, Real>(dftFeq, dftRho, dftV[0], dftV[1], dftV[2]);
+        #pragma unroll
+        for(Int i=0 ; i<27 ; ++i)
+        {
+            thrust::fill_n(dSrcDDFPtr+i*size, size, dftFeq[i]);
+            thrust::fill_n(dDstDDFPtr+i*size, size, dftFeq[i]);
+        }
+    }
 }
 
 D3Q27DoubleDDFSimulator::~D3Q27DoubleDDFSimulator() noexcept
@@ -57,6 +71,41 @@ D3Q27DoubleDDFSimulator::~D3Q27DoubleDDFSimulator() noexcept
     cudaStreamDestroy(stream);
     cudaEventDestroy(start);
     cudaEventDestroy(end);
+}
+
+void D3Q27DoubleDDFSimulator::setup()
+{
+
+}
+
+void D3Q27DoubleDDFSimulator::run(UInt step)
+{
+    float ms;
+    D3Q27DoubleDDFKernelParam param
+    {
+        .srcDDF = nullptr, 
+        .dstDDF = nullptr, 
+        .rho    = getRhoPtr(), 
+        .vx     = getVxPtr(), 
+        .vy     = getVyPtr(), 
+        .vz     = getVzPtr(), 
+        .flag   = getFlagPtr()
+    };
+    cudaEventRecord(start, stream);
+    for(UInt i=0 ; i<step ; ++i)
+    {
+        param.srcDDF = getSrcDDFPtr();
+        param.dstDDF = getDstDDFPtr();
+        D3Q27DoubleDDFKernel<<<{ny, nz, 1}, nx, 0, stream>>>(param);
+        swapDDFPtr();
+        ++timeStep;
+    }
+    cudaEventRecord(end, stream);
+    cudaEventSynchronize(end);
+    cudaEventElapsedTime(&ms, start, end);
+    cu::check();
+    const float mlups = (static_cast<float>(size)*step/(1024*1024)) / (ms / 1000);
+    printf("[Info]: D3Q27DoubleDDFSimulator run, speed = %.2f (MLUPS)\n", mlups);
 }
 
 #define defX()  static_cast<Int>(threadIdx.x)
@@ -151,61 +200,61 @@ __launch_bounds__(D3Q27DoubleDDFSimulator::nx) __global__ void D3Q27DoubleDDFKer
     if((flagi & D3Q27DoubleDDFSimulator::REV_LOAD_DDF_BIT) != 0)
     {
         /*load f[x:+,y:+,z:+] from nbr[x:+,y:+,z:+]*/
-        fn[26] = param.srcDDF[ 0*n+idx+pdx+pdy+pdz];
+        fni[26] = param.srcDDF[ 0*n+idx+pdx+pdy+pdz];
         /*load f[x:0,y:+,z:+] from nbr[x:0,y:+,z:+]*/
-        fn[25] = param.srcDDF[ 1*n+idx+    pdy+pdz];
+        fni[25] = param.srcDDF[ 1*n+idx+    pdy+pdz];
         /*load f[x:-,y:+,z:+] from nbr[x:-,y:+,z:+]*/
-        fn[24] = param.srcDDF[ 2*n+idx+ndx+pdy+pdz];
+        fni[24] = param.srcDDF[ 2*n+idx+ndx+pdy+pdz];
         /*load f[x:+,y:0,z:+] from nbr[x:+,y:0,z:+]*/
-        fn[23] = param.srcDDF[ 3*n+idx+pdx+    pdz];
+        fni[23] = param.srcDDF[ 3*n+idx+pdx+    pdz];
         /*load f[x:0,y:0,z:+] from nbr[x:0,y:0,z:+]*/
-        fn[22] = param.srcDDF[ 4*n+idx+        pdz];
+        fni[22] = param.srcDDF[ 4*n+idx+        pdz];
         /*load f[x:-,y:0,z:+] from nbr[x:-,y:0,z:+]*/
-        fn[21] = param.srcDDF[ 5*n+idx+ndx+    pdz];
+        fni[21] = param.srcDDF[ 5*n+idx+ndx+    pdz];
         /*load f[x:+,y:-,z:+] from nbr[x:+,y:-,z:+]*/
-        fn[20] = param.srcDDF[ 6*n+idx+pdx+ndy+pdz];
+        fni[20] = param.srcDDF[ 6*n+idx+pdx+ndy+pdz];
         /*load f[x:0,y:-,z:+] from nbr[x:0,y:-,z:+]*/
-        fn[19] = param.srcDDF[ 7*n+idx+    ndy+pdz];
+        fni[19] = param.srcDDF[ 7*n+idx+    ndy+pdz];
         /*load f[x:-,y:-,z:+] from nbr[x:-,y:-,z:+]*/
-        fn[18] = param.srcDDF[ 8*n+idx+ndx+ndy+pdz];
+        fni[18] = param.srcDDF[ 8*n+idx+ndx+ndy+pdz];
 
         /*load f[x:+,y:+,z:0] from nbr[x:+,y:+,z:0]*/
-        fn[17] = param.srcDDF[ 9*n+idx+pdx+pdy    ];
+        fni[17] = param.srcDDF[ 9*n+idx+pdx+pdy    ];
         /*load f[x:0,y:+,z:0] from nbr[x:0,y:+,z:0]*/
-        fn[16] = param.srcDDF[10*n+idx+    pdy    ];
+        fni[16] = param.srcDDF[10*n+idx+    pdy    ];
         /*load f[x:-,y:+,z:0] from nbr[x:-,y:+,z:0]*/
-        fn[15] = param.srcDDF[11*n+idx+ndx+pdy    ];
+        fni[15] = param.srcDDF[11*n+idx+ndx+pdy    ];
         /*load f[x:+,y:0,z:0] from nbr[x:+,y:0,z:0]*/
-        fn[14] = param.srcDDF[12*n+idx+pdx        ];
+        fni[14] = param.srcDDF[12*n+idx+pdx        ];
         /*load f[x:0,y:0,z:0] from nbr[x:0,y:0,z:0]*/
-        fn[13] = param.srcDDF[13*n+idx            ];
+        fni[13] = param.srcDDF[13*n+idx            ];
         /*load f[x:-,y:0,z:0] from nbr[x:-,y:0,z:0]*/
-        fn[12] = param.srcDDF[14*n+idx+ndx        ];
+        fni[12] = param.srcDDF[14*n+idx+ndx        ];
         /*load f[x:+,y:-,z:0] from nbr[x:+,y:-,z:0]*/
-        fn[11] = param.srcDDF[15*n+idx+pdx+ndy    ];
+        fni[11] = param.srcDDF[15*n+idx+pdx+ndy    ];
         /*load f[x:0,y:-,z:0] from nbr[x:0,y:-,z:0]*/
-        fn[10] = param.srcDDF[16*n+idx+    ndy    ];
+        fni[10] = param.srcDDF[16*n+idx+    ndy    ];
         /*load f[x:-,y:-,z:0] from nbr[x:-,y:-,z:0]*/
-        fn[ 9] = param.srcDDF[17*n+idx+ndx+ndy    ];
+        fni[ 9] = param.srcDDF[17*n+idx+ndx+ndy    ];
 
         /*load f[x:+,y:+,z:-] from nbr[x:+,y:+,z:-]*/
-        fn[ 8] = param.srcDDF[18*n+idx+pdx+pdy+ndz];
+        fni[ 8] = param.srcDDF[18*n+idx+pdx+pdy+ndz];
         /*load f[x:0,y:+,z:-] from nbr[x:0,y:+,z:-]*/
-        fn[ 7] = param.srcDDF[19*n+idx+    pdy+ndz];
+        fni[ 7] = param.srcDDF[19*n+idx+    pdy+ndz];
         /*load f[x:-,y:+,z:-] from nbr[x:-,y:+,z:-]*/
-        fn[ 6] = param.srcDDF[20*n+idx+ndx+pdy+ndz];
+        fni[ 6] = param.srcDDF[20*n+idx+ndx+pdy+ndz];
         /*load f[x:+,y:0,z:-] from nbr[x:+,y:0,z:-]*/
-        fn[ 5] = param.srcDDF[21*n+idx+pdx+    ndz];
+        fni[ 5] = param.srcDDF[21*n+idx+pdx+    ndz];
         /*load f[x:0,y:0,z:-] from nbr[x:0,y:0,z:-]*/
-        fn[ 4] = param.srcDDF[22*n+idx+        ndz];
+        fni[ 4] = param.srcDDF[22*n+idx+        ndz];
         /*load f[x:-,y:0,z:-] from nbr[x:-,y:0,z:-]*/
-        fn[ 3] = param.srcDDF[23*n+idx+ndx+    ndz];
+        fni[ 3] = param.srcDDF[23*n+idx+ndx+    ndz];
         /*load f[x:+,y:-,z:-] from nbr[x:+,y:-,z:-]*/
-        fn[ 2] = param.srcDDF[24*n+idx+pdx+ndy+ndz];
+        fni[ 2] = param.srcDDF[24*n+idx+pdx+ndy+ndz];
         /*load f[x:0,y:-,z:-] from nbr[x:0,y:-,z:-]*/
-        fn[ 1] = param.srcDDF[25*n+idx+    ndy+ndz];
+        fni[ 1] = param.srcDDF[25*n+idx+    ndy+ndz];
         /*load f[x:-,y:-,z:-] from nbr[x:-,y:-,z:-]*/
-        fn[ 0] = param.srcDDF[26*n+idx+ndx+ndy+ndz];
+        fni[ 0] = param.srcDDF[26*n+idx+ndx+ndy+ndz];
     }
 
     if((flagi & D3Q27DoubleDDFSimulator::EQU_DDF_BIT) != 0)
@@ -220,6 +269,50 @@ __launch_bounds__(D3Q27DoubleDDFSimulator::nx) __global__ void D3Q27DoubleDDFKer
     {
         Real feqi[27];
         srt::calcRhoU3D<27, Real>(rhoi, vxi, vyi, vzi, fni);
-        srt::calcEqu3D<27, Real>(feqi, vxi, vyi, vzi);
+        srt::calcEqu3D<27, Real>(feqi, rhoi, vxi, vyi, vzi);
+        srt::relaxation<27, Real, D3Q27DoubleDDFSimulator::invTau>(fni, feqi);
+    }
+
+    if((flagi & D3Q27DoubleDDFSimulator::STORE_DDF_BIT) != 0)
+    {
+        param.dstDDF[ 0*n+idx] = fni[ 0];
+        param.dstDDF[ 1*n+idx] = fni[ 1];
+        param.dstDDF[ 2*n+idx] = fni[ 2];
+        param.dstDDF[ 3*n+idx] = fni[ 3];
+        param.dstDDF[ 4*n+idx] = fni[ 4];
+        param.dstDDF[ 5*n+idx] = fni[ 5];
+        param.dstDDF[ 6*n+idx] = fni[ 6];
+        param.dstDDF[ 7*n+idx] = fni[ 7];
+        param.dstDDF[ 8*n+idx] = fni[ 8];
+        param.dstDDF[ 9*n+idx] = fni[ 9];
+        param.dstDDF[10*n+idx] = fni[10];
+        param.dstDDF[11*n+idx] = fni[11];
+        param.dstDDF[12*n+idx] = fni[12];
+        param.dstDDF[13*n+idx] = fni[13];
+        param.dstDDF[14*n+idx] = fni[14];
+        param.dstDDF[15*n+idx] = fni[15];
+        param.dstDDF[16*n+idx] = fni[16];
+        param.dstDDF[17*n+idx] = fni[17];
+        param.dstDDF[18*n+idx] = fni[18];
+        param.dstDDF[19*n+idx] = fni[19];
+        param.dstDDF[20*n+idx] = fni[20];
+        param.dstDDF[21*n+idx] = fni[21];
+        param.dstDDF[22*n+idx] = fni[22];
+        param.dstDDF[23*n+idx] = fni[23];
+        param.dstDDF[24*n+idx] = fni[24];
+        param.dstDDF[25*n+idx] = fni[25];
+        param.dstDDF[26*n+idx] = fni[26];
+    }
+
+    if((flagi & D3Q27DoubleDDFSimulator::STORE_RHO_BIT) != 0)
+    {
+        param.rho[idx] = rhoi;
+    }
+
+    if((flagi & D3Q27DoubleDDFSimulator::STORE_U_BIT) != 0)
+    {
+        param.vx[idx] = vxi;
+        param.vy[idx] = vyi;
+        param.vz[idx] = vzi;
     }
 }

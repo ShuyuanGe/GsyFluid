@@ -23,8 +23,15 @@ namespace detail
         }
     }
 
-    template<int I, int Q, typename T, typename Arr>
-    CUDA_INLINE
+    template<int I, int Q, typename T, T Omega, typename Arr>
+    CUDA_INLINE void relaxationHelper(Arr &fni, const Arr &feqi)
+    {
+        if constexpr (I < Q)
+        {
+            fni[I] -= Omega*(feqi[I]-fni[I]);
+            relaxationHelper<I+1, Q, T, Omega, Arr>(fni, feqi);
+        }
+    }
 }
 
 namespace srt
@@ -52,5 +59,9 @@ namespace srt
         vzi /= rhoi;
     }
 
-    
+    template<int Q, typename T, T Omega, typename Arr>
+    CUDA_INLINE void relaxation(Arr &fni, const Arr &feqi)
+    {
+        detail::relaxationHelper<0, Q, T, Omega, Arr>(fni, feqi);
+    }
 }
