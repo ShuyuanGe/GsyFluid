@@ -20,7 +20,7 @@ class D3Q27DoubleDDFSimulator :
     public DoubleDDFBufData<27, Real>
 {
     public:
-        static constexpr Real invTau = 1.f / 3.5f;
+        static constexpr Real invTau = 1.f / 0.7f;
         static constexpr Int nx = 512;
         static constexpr Int ny = 256;
         static constexpr Int nz = 256;

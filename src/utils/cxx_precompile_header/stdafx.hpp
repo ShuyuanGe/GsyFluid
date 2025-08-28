@@ -3,7 +3,9 @@
 
 #include <array>
 #include <cmath>
+#include <vector>
 #include <cstdint>
+#include <fstream>
 #include <concepts>
 #include <iostream>
 #include <optional>

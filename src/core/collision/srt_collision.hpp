@@ -28,7 +28,7 @@ namespace detail
     {
         if constexpr (I < Q)
         {
-            fni[I] -= Omega*(feqi[I]-fni[I]);
+            fni[I] += Omega*(feqi[I]-fni[I]);
             relaxationHelper<I+1, Q, T, Omega, Arr>(fni, feqi);
         }
     }

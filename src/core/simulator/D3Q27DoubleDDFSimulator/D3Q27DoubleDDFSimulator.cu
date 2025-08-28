@@ -1,3 +1,4 @@
+#include "stdafx.cuh"
 #include "cu_check.cuh"
 #include "srt_collision.hpp"
 #include "D3Q27DoubleDDFSimulator.cuh"
@@ -75,7 +76,41 @@ D3Q27DoubleDDFSimulator::~D3Q27DoubleDDFSimulator() noexcept
 
 void D3Q27DoubleDDFSimulator::setup()
 {
-
+    thrust::for_each_n(
+        thrust::make_counting_iterator<UInt>(0), 
+        size, 
+        [
+            dFlagPtr = getFlagPtr(), 
+            dVxPtr = getVxPtr(), 
+            dVyPtr = getVyPtr(), 
+            dVzPtr = getVzPtr(),
+            nx = nx, 
+            ny = ny, 
+            nz = nz
+        ]
+        __device__ (UInt idx) -> void
+        {
+            const UInt x = idx % nx;
+            const UInt y = (idx / nx) % ny;
+            const UInt z = idx / (nx * ny);
+            if(y==0 or y==ny-1 or z==0 or z==nz-1)
+            {
+                dFlagPtr[idx] = BOUNCE_BACK_BC_FLAG;
+            }
+            else if (x==0)
+            {
+                dFlagPtr[idx] = EQU_BC_FLAG;
+                dVxPtr[idx]   = 0.01;
+            }
+            else if (x==nx-1)
+            {
+                dFlagPtr[idx] = EQU_BC_FLAG;
+                dVxPtr[idx] = static_cast<Real>(0);
+                dVyPtr[idx] = static_cast<Real>(0);
+                dVzPtr[idx] = static_cast<Real>(0);
+            }
+        }
+    );
 }
 
 void D3Q27DoubleDDFSimulator::run(UInt step)
@@ -96,7 +131,7 @@ void D3Q27DoubleDDFSimulator::run(UInt step)
     {
         param.srcDDF = getSrcDDFPtr();
         param.dstDDF = getDstDDFPtr();
-        D3Q27DoubleDDFKernel<<<{ny, nz, 1}, nx, 0, stream>>>(param);
+        D3Q27DoubleDDFKernel<<<dim3{ny, nz, 1}, nx, 0, stream>>>(param);
         swapDDFPtr();
         ++timeStep;
     }
@@ -263,6 +298,7 @@ __launch_bounds__(D3Q27DoubleDDFSimulator::nx) __global__ void D3Q27DoubleDDFKer
         vxi  = param.vx[idx];
         vyi  = param.vy[idx];
         vzi  = param.vz[idx];
+        srt::calcEqu3D<27, Real>(fni, rhoi, vxi, vyi, vzi);
     }
 
     if((flagi & D3Q27DoubleDDFSimulator::COLLIDE_BIT) != 0)
