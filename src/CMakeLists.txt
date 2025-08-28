@@ -15,6 +15,7 @@ set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 set(CUDA_COMPILE_FLAG PRIVATE --extended-lambda --expt-relaxed-constexpr)
 
 add_subdirectory(utils)
+add_subdirectory(core)
 add_subdirectory(example)
 
 add_executable(GsyFluidMain main.cpp)

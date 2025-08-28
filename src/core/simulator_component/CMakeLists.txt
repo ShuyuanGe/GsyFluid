@@ -1,0 +1,3 @@
+add_library(simulator_component INTERFACE)
+target_include_directories(simulator_component INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(simulator_component INTERFACE cxx_precompile_header cu_precompile_header cu_memory)

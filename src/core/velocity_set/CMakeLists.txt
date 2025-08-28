@@ -1,0 +1,3 @@
+add_library(velocity_set INTERFACE)
+target_include_directories(velocity_set INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(velocity_set INTERFACE cxx_precompile_header)

@@ -1,1 +1,3 @@
 add_subdirectory(cu_runtime_error)
+add_subdirectory(D3Q27DoubleDDFSimulator)
+add_subdirectory(srt_test)
