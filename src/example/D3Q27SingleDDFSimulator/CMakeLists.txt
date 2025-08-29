@@ -1,0 +1,2 @@
+add_executable(D3Q27SingleDDFSimulatorMain main.cu)
+target_link_libraries(D3Q27SingleDDFSimulatorMain D3Q27SingleDDFSimulatorLib)

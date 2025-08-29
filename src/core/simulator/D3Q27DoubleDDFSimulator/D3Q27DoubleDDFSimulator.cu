@@ -34,37 +34,18 @@ D3Q27DoubleDDFSimulator::D3Q27DoubleDDFSimulator(
     cudaEventCreate(&start);
     cudaEventCreate(&end);
 
-    {
-        thrust::device_ptr<Flag> dFlagPtr {getFlagPtr()};
-        thrust::fill_n(dFlagPtr, size, FLUID_FLAG);
-    }
+    setDftFlag(FLUID_FLAG, size);
+    
+    setDftRho(dftRho, size);
 
-    {
-        thrust::device_ptr<Real> dRhoPtr {getRhoPtr()};
-        thrust::fill_n(dRhoPtr, size, dftRho);
-    }
+    setDftVx(dftV[0], size);
+    setDftVy(dftV[1], size);
+    setDftVz(dftV[2], size);
 
-    {
-        thrust::device_ptr<Real> dVxPtr {getVxPtr()};
-        thrust::device_ptr<Real> dVyPtr {getVyPtr()};
-        thrust::device_ptr<Real> dVzPtr {getVzPtr()};
-        thrust::fill_n(dVxPtr, size, dftV[0]);
-        thrust::fill_n(dVyPtr, size, dftV[1]);
-        thrust::fill_n(dVzPtr, size, dftV[2]);
-    }
-
-    {
-        Real dftFeq[27];
-        thrust::device_ptr<Real> dSrcDDFPtr {getSrcDDFPtr()};
-        thrust::device_ptr<Real> dDstDDFPtr {getDstDDFPtr()};
-        srt::calcEqu3D<27, Real>(dftFeq, dftRho, dftV[0], dftV[1], dftV[2]);
-        #pragma unroll
-        for(Int i=0 ; i<27 ; ++i)
-        {
-            thrust::fill_n(dSrcDDFPtr+i*size, size, dftFeq[i]);
-            thrust::fill_n(dDstDDFPtr+i*size, size, dftFeq[i]);
-        }
-    }
+    Real dftFeq[27];
+    srt::calcEqu3D<27, Real>(dftFeq, dftRho, dftV[0], dftV[1], dftV[2]);
+    setSrcDftDDF<27>(dftFeq, size);
+    setDstDftDDF<27>(dftFeq, size);
 }
 
 D3Q27DoubleDDFSimulator::~D3Q27DoubleDDFSimulator() noexcept

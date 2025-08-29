@@ -1,0 +1,4 @@
+add_library(D3Q27SingleDDFSimulatorLib STATIC D3Q27SingleDDFSimulator.cu)
+target_include_directories(D3Q27SingleDDFSimulatorLib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(D3Q27SingleDDFSimulatorLib PUBLIC simulator_component collision cu_check cxx_precompile_header)
+target_compile_options(D3Q27SingleDDFSimulatorLib PUBLIC --expt-relaxed-constexpr --extended-lambda)

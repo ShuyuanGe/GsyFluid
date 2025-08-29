@@ -6,9 +6,9 @@
 #include "single_ddf_buf_impl.hpp"
 
 template<int N, typename DDF>
-class SingleDDFBufData : public SingleDDFBufImpl<SingleDDFBufData>
+class SingleDDFBufData : public SingleDDFBufImpl<SingleDDFBufData<N, DDF>, DDF>
 {
-    friend class SingleDDFBufImpl<SingleDDFBufData>;
+    friend class SingleDDFBufImpl<SingleDDFBufData, DDF>;
     public:
         using ddf_t = DDF;
     protected:
