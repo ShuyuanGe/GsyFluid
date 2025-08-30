@@ -4,7 +4,18 @@ int main()
 {
     try
     {
+        constexpr UInt dStep = 10;
+        constexpr UInt N = 20;
         D3Q27SingleDDFSimulator sim;
+        std::vector<Real> hVxBuf (D3Q27SingleDDFSimulator::size, 0);
+        sim.setup();
+        for(int i=0 ; i<N ; ++i)
+        {
+            sim.run(dStep);
+            std::ofstream out (std::string("frame_")+std::to_string(i)+".dat", std::ios::binary);
+            cu::memcpy(hVxBuf.data(), sim.getVxPtr(), D3Q27SingleDDFSimulator::size);
+            out.write((const char*)hVxBuf.data(), sizeof(Real)*hVxBuf.size());
+        }
     }
     catch(const std::exception& e)
     {

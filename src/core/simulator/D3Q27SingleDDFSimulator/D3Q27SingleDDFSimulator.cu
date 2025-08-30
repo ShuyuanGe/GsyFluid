@@ -10,11 +10,13 @@ struct D3Q27SingleDDFKernelParam
     Real *vx  = nullptr;
     Real *vy  = nullptr;
     Real *vz  = nullptr;
-    Real *flag= nullptr;
+    Flag *flag= nullptr;
 };
 
 template<bool isEven>
 __global__ void D3Q27SingleDDFKernel(const D3Q27SingleDDFKernelParam __grid_constant__ param);
+
+
 
 D3Q27SingleDDFSimulator::D3Q27SingleDDFSimulator(
     Real dftRho, 
@@ -91,6 +93,39 @@ void D3Q27SingleDDFSimulator::setup()
     );
 }
 
+void D3Q27SingleDDFSimulator::run(UInt step)
+{
+    float ms;
+    D3Q27SingleDDFKernelParam param
+    {
+        .DDF = getDDFPtr(), 
+        .rho = getRhoPtr(), 
+        .vx  = getVxPtr(), 
+        .vy  = getVyPtr(), 
+        .vz  = getVzPtr(), 
+        .flag= getFlagPtr()
+    };
+    cudaEventRecord(start, stream);
+    for(UInt i=0 ; i<step ; ++i)
+    {
+        if(timeStep%2==0)
+        {
+            D3Q27SingleDDFKernel<true><<<dim3{ny, nz, 1}, nx, 0, stream>>>(param);
+        }
+        else
+        {
+            D3Q27SingleDDFKernel<false><<<dim3{ny, nz, 1}, nx, 0, stream>>>(param);
+        }
+        ++timeStep;
+    }
+    cudaEventRecord(end, stream);
+    cudaEventSynchronize(end);
+    cudaEventElapsedTime(&ms, start, end);
+    cu::check();
+    const float mlups = (static_cast<float>(size)*step/(1024*1024) / (ms/1000));
+    printf("[Info: D3Q27SingleDDFSimulator run, speed = %.2f (MLUPS)]\n", mlups);
+}
+
 #define defX()  static_cast<Int>(threadIdx.x)
 #define defY()  static_cast<Int>(blockIdx.x)
 #define defZ()  static_cast<Int>(blockIdx.y)
@@ -144,46 +179,252 @@ __launch_bounds__(D3Q27SingleDDFSimulator::nx) __global__ void D3Q27SingleDDFKer
             fni[ 8] = param.DDF[18*n+idx+pdz  ];
 
             /*load f[x:-,y:-,z:0] from nbr[x:+,y:+,z:0]*/
-            fni[ 9] = param.DDF[26*n+idx+pdxy ];
+            fni[ 9] = param.DDF[17*n+idx+pdxy ];
             /*load f[x:0,y:-,z:0] from nbr[x:0,y:+,z:0]*/
-            fni[10] = param.DDF[25*n+idx+pdy  ];
+            fni[10] = param.DDF[16*n+idx+pdy  ];
             /*load f[x:+,y:-,z:0] from nbr[x:0,y:+,z:0]*/
-            fni[11] = param.DDF[24*n+idx+pdy  ];
+            fni[11] = param.DDF[15*n+idx+pdy  ];
             /*load f[x:-,y:0,z:0] from nbr[x:+,y:0,z:0]*/
-            fni[12] = param.DDF[23*n+idx+pdx  ];
+            fni[12] = param.DDF[14*n+idx+pdx  ];
             /*load f[x:0,y:0,z:0] form nbr[x:0,y:0,z:0]*/
-            fni[13] = param.DDF[22*n+idx      ];
+            fni[13] = param.DDF[13*n+idx      ];
             /*load f[x:+,y:0,z:0] from nbr[x:0,y:0,z:0]*/
-            fni[14] = param.DDF[21*n+idx      ];
+            fni[14] = param.DDF[12*n+idx      ];
             /*load f[x:-,y:+,z:0] from nbr[x:+,y:0,z:0]*/
-            fni[15] = param.DDF[20*n+idx+pdx  ];
+            fni[15] = param.DDF[11*n+idx+pdx  ];
             /*load f[x:0,y:+,z:0] form nbr[x:0,y:0,z:0]*/
-            fni[16] = param.DDF[19*n+idx      ];
+            fni[16] = param.DDF[10*n+idx      ];
             /*load f[x:+,y:+,z:0] from nbr[x:0,y:0,z:0]*/
-            fni[17] = param.DDF[18*n+idx      ];
+            fni[17] = param.DDF[ 9*n+idx      ];
 
             /*load f[x:-,y:-,z:+] from nbr[x:+,y:+,z:0]*/
-            fni[18] = param.DDF[26*n+idx+pdxy ];
+            fni[18] = param.DDF[ 8*n+idx+pdxy ];
             /*load f[x:0,y:-,z:+] from nbr[x:0,y:+,z:0]*/
-            fni[19] = param.DDF[25*n+idx+pdy  ];
+            fni[19] = param.DDF[ 7*n+idx+pdy  ];
             /*load f[x:+,y:-,z:+] from nbr[x:0,y:+,z:0]*/
-            fni[20] = param.DDF[24*n+idx+pdy  ];
+            fni[20] = param.DDF[ 6*n+idx+pdy  ];
             /*load f[x:-,y:0,z:+] from nbr[x:+,y:0,z:0]*/
-            fni[21] = param.DDF[23*n+idx+pdx  ];
+            fni[21] = param.DDF[ 5*n+idx+pdx  ];
             /*load f[x:0,y:0,z:+] form nbr[x:0,y:0,z:0]*/
-            fni[22] = param.DDF[22*n+idx      ];
+            fni[22] = param.DDF[ 4*n+idx      ];
             /*load f[x:+,y:0,z:+] from nbr[x:0,y:0,z:0]*/
-            fni[23] = param.DDF[21*n+idx      ];
+            fni[23] = param.DDF[ 3*n+idx      ];
             /*load f[x:-,y:+,z:+] from nbr[x:+,y:0,z:0]*/
-            fni[24] = param.DDF[20*n+idx+pdx  ];
+            fni[24] = param.DDF[ 2*n+idx+pdx  ];
             /*load f[x:0,y:+,z:+] form nbr[x:0,y:0,z:0]*/
-            fni[25] = param.DDF[19*n+idx      ];
+            fni[25] = param.DDF[ 1*n+idx      ];
             /*load f[x:+,y:+,z:+] from nbr[x:0,y:0,z:0]*/
-            fni[26] = param.DDF[18*n+idx      ];
+            fni[26] = param.DDF[ 0*n+idx      ];
         }
         else
         {
+            /*load f[x:-,y:-,z:-] from nbr[x:+,y:+,z:+]*/
+            fni[ 0] = param.DDF[ 0*n+idx+pdxyz];
+            /*load f[x:0,y:-,z:-] from nbr[x:0,y:+,z:+]*/
+            fni[ 1] = param.DDF[ 1*n+idx+pdyz ];
+            /*load f[x:+,y:-,z:-] from nbr[x:0,y:+,z:+]*/
+            fni[ 2] = param.DDF[ 2*n+idx+pdyz ];
+            /*load f[x:-,y:0,z:-] from nbr[x:+,y:0,z:+]*/
+            fni[ 3] = param.DDF[ 3*n+idx+pdxz ];
+            /*load f[x:0,y:0,z:-] form nbr[x:0,y:0,z:+]*/
+            fni[ 4] = param.DDF[ 4*n+idx+pdz  ];
+            /*load f[x:+,y:0,z:-] from nbr[x:0,y:0,z:+]*/
+            fni[ 5] = param.DDF[ 5*n+idx+pdz  ];
+            /*load f[x:-,y:+,z:-] from nbr[x:+,y:0,z:+]*/
+            fni[ 6] = param.DDF[ 6*n+idx+pdxz ];
+            /*load f[x:0,y:+,z:-] form nbr[x:0,y:0,z:+]*/
+            fni[ 7] = param.DDF[ 7*n+idx+pdz  ];
+            /*load f[x:+,y:+,z:-] from nbr[x:0,y:0,z:+]*/
+            fni[ 8] = param.DDF[ 8*n+idx+pdz  ];
 
+            /*load f[x:-,y:-,z:0] from nbr[x:+,y:+,z:0]*/
+            fni[ 9] = param.DDF[ 9*n+idx+pdxy ];
+            /*load f[x:0,y:-,z:0] from nbr[x:0,y:+,z:0]*/
+            fni[10] = param.DDF[10*n+idx+pdy  ];
+            /*load f[x:+,y:-,z:0] from nbr[x:0,y:+,z:0]*/
+            fni[11] = param.DDF[11*n+idx+pdy  ];
+            /*load f[x:-,y:0,z:0] from nbr[x:+,y:0,z:0]*/
+            fni[12] = param.DDF[12*n+idx+pdx  ];
+            /*load f[x:0,y:0,z:0] form nbr[x:0,y:0,z:0]*/
+            fni[13] = param.DDF[13*n+idx      ];
+            /*load f[x:+,y:0,z:0] from nbr[x:0,y:0,z:0]*/
+            fni[14] = param.DDF[14*n+idx      ];
+            /*load f[x:-,y:+,z:0] from nbr[x:+,y:0,z:0]*/
+            fni[15] = param.DDF[15*n+idx+pdx  ];
+            /*load f[x:0,y:+,z:0] form nbr[x:0,y:0,z:0]*/
+            fni[16] = param.DDF[16*n+idx      ];
+            /*load f[x:+,y:+,z:0] from nbr[x:0,y:0,z:0]*/
+            fni[17] = param.DDF[17*n+idx      ];
+
+            /*load f[x:-,y:-,z:+] from nbr[x:+,y:+,z:0]*/
+            fni[18] = param.DDF[18*n+idx+pdxy ];
+            /*load f[x:0,y:-,z:+] from nbr[x:0,y:+,z:0]*/
+            fni[19] = param.DDF[19*n+idx+pdy  ];
+            /*load f[x:+,y:-,z:+] from nbr[x:0,y:+,z:0]*/
+            fni[20] = param.DDF[20*n+idx+pdy  ];
+            /*load f[x:-,y:0,z:+] from nbr[x:+,y:0,z:0]*/
+            fni[21] = param.DDF[21*n+idx+pdx  ];
+            /*load f[x:0,y:0,z:+] form nbr[x:0,y:0,z:0]*/
+            fni[22] = param.DDF[22*n+idx      ];
+            /*load f[x:+,y:0,z:+] from nbr[x:0,y:0,z:0]*/
+            fni[23] = param.DDF[23*n+idx      ];
+            /*load f[x:-,y:+,z:+] from nbr[x:+,y:0,z:0]*/
+            fni[24] = param.DDF[24*n+idx+pdx  ];
+            /*load f[x:0,y:+,z:+] form nbr[x:0,y:0,z:0]*/
+            fni[25] = param.DDF[25*n+idx      ];
+            /*load f[x:+,y:+,z:+] from nbr[x:0,y:0,z:0]*/
+            fni[26] = param.DDF[26*n+idx      ];
         }
+    }
+
+    if((flagi & D3Q27SingleDDFSimulator::EQU_DDF_BIT) != 0)
+    {
+        rhoi = param.rho[idx];
+        vxi  = param.vx[idx];
+        vyi  = param.vy[idx];
+        vzi  = param.vz[idx];
+        srt::calcEqu3D<27, Real>(fni, rhoi, vxi, vyi, vzi);
+    }
+
+    if((flagi & D3Q27SingleDDFSimulator::COLLIDE_BIT) != 0)
+    {
+        Real feqi[27];
+        srt::calcRhoU3D<27, Real>(rhoi, vxi, vyi, vzi, feqi);
+        srt::calcEqu3D<27, Real>(feqi, rhoi, vxi, vyi, vzi);
+        srt::relaxation<27, Real, D3Q27SingleDDFSimulator::invTau>(fni, feqi);
+    }
+
+    if((flagi & D3Q27SingleDDFSimulator::STORE_DDF_BIT) != 0)
+    {
+        if constexpr (isEven)
+        {
+            /*store f[x:-,y:-,z:-] from nbr[x:0,y:0,z:0]*/
+            param.DDF[ 0*n+idx      ] = fni[ 0];
+            /*store f[x:0,y:-,z:-] from nbr[x:0,y:0,z:0]*/
+            param.DDF[ 1*n+idx      ] = fni[ 1];
+            /*store f[x:+,y:-,z:-] from nbr[x:+,y:0,z:0]*/
+            param.DDF[ 2*n+idx+pdx  ] = fni[ 2];
+            /*store f[x:-,y:0,z:-] from nbr[x:0,y:0,z:0]*/
+            param.DDF[ 3*n+idx      ] = fni[ 3];
+            /*store f[x:0,y:0,z:-] from nbr[x:0,y:0,z:0]*/
+            param.DDF[ 4*n+idx      ] = fni[ 4];
+            /*store f[x:+,y:0,z:-] from nbr[x:+,y:0,z:0]*/
+            param.DDF[ 5*n+idx+pdx  ] = fni[ 5];
+            /*store f[x:-,y:+,z:-] from nbr[x:0,y:+,z:0]*/
+            param.DDF[ 6*n+idx+pdy  ] = fni[ 6];
+            /*store f[x:0,y:+,z:-] from nbr[x:0,y:+,z:0]*/
+            param.DDF[ 7*n+idx+pdy  ] = fni[ 7];
+            /*store f[x:+,y:+,z:-] from nbr[x:+,y:+,z:0]*/
+            param.DDF[ 8*n+idx+pdxy ] = fni[ 8];
+
+            /*store f[x:-,y:-,z:0] from nbr[x:0,y:0,z:0]*/
+            param.DDF[ 9*n+idx      ] = fni[ 9];
+            /*store f[x:0,y:-,z:0] from nbr[x:0,y:0,z:0]*/
+            param.DDF[10*n+idx      ] = fni[10];
+            /*store f[x:+,y:-,z:0] from nbr[x:+,y:0,z:0]*/
+            param.DDF[11*n+idx+pdx  ] = fni[11];
+            /*store f[x:-,y:0,z:0] from nbr[x:0,y:0,z:0]*/
+            param.DDF[12*n+idx      ] = fni[12];
+            /*store f[x:0,y:0,z:0] from nbr[x:0,y:0,z:0]*/
+            param.DDF[13*n+idx      ] = fni[13];
+            /*store f[x:+,y:0,z:0] from nbr[x:+,y:0,z:0]*/
+            param.DDF[14*n+idx+pdx  ] = fni[14];
+            /*store f[x:-,y:+,z:0] from nbr[x:0,y:+,z:0]*/
+            param.DDF[15*n+idx+pdy  ] = fni[15];
+            /*store f[x:0,y:+,z:0] from nbr[x:0,y:+,z:0]*/
+            param.DDF[16*n+idx+pdy  ] = fni[16];
+            /*store f[x:+,y:+,z:0] from nbr[x:+,y:+,z:0]*/
+            param.DDF[17*n+idx+pdxy ] = fni[17];
+
+            /*store f[x:-,y:-,z:+] from nbr[x:0,y:0,z:+]*/
+            param.DDF[18*n+idx+pdz  ] = fni[18];
+            /*store f[x:0,y:-,z:+] from nbr[x:0,y:0,z:+]*/
+            param.DDF[19*n+idx+pdz  ] = fni[19];
+            /*store f[x:+,y:-,z:+] from nbr[x:+,y:0,z:+]*/
+            param.DDF[20*n+idx+pdxz ] = fni[20];
+            /*store f[x:-,y:0,z:+] from nbr[x:0,y:0,z:+]*/
+            param.DDF[21*n+idx+pdz  ] = fni[21];
+            /*store f[x:0,y:0,z:+] from nbr[x:0,y:0,z:+]*/
+            param.DDF[22*n+idx+pdz  ] = fni[22];
+            /*store f[x:+,y:0,z:+] from nbr[x:+,y:0,z:+]*/
+            param.DDF[23*n+idx+pdxz ] = fni[23];
+            /*store f[x:-,y:+,z:+] from nbr[x:0,y:+,z:+]*/
+            param.DDF[24*n+idx+pdyz ] = fni[24];
+            /*store f[x:0,y:+,z:+] from nbr[x:0,y:+,z:+]*/
+            param.DDF[25*n+idx+pdyz ] = fni[25];
+            /*store f[x:+,y:+,z:+] from nbr[x:+,y:+,z:+]*/
+            param.DDF[26*n+idx+pdxyz] = fni[26];
+        }
+        else
+        {
+            /*store f[x:-,y:-,z:-] from nbr[x:0,y:0,z:0]*/
+            param.DDF[26*n+idx      ] = fni[ 0];
+            /*store f[x:0,y:-,z:-] from nbr[x:0,y:0,z:0]*/
+            param.DDF[25*n+idx      ] = fni[ 1];
+            /*store f[x:+,y:-,z:-] from nbr[x:+,y:0,z:0]*/
+            param.DDF[24*n+idx+pdx  ] = fni[ 2];
+            /*store f[x:-,y:0,z:-] from nbr[x:0,y:0,z:0]*/
+            param.DDF[23*n+idx      ] = fni[ 3];
+            /*store f[x:0,y:0,z:-] from nbr[x:0,y:0,z:0]*/
+            param.DDF[22*n+idx      ] = fni[ 4];
+            /*store f[x:+,y:0,z:-] from nbr[x:+,y:0,z:0]*/
+            param.DDF[21*n+idx+pdx  ] = fni[ 5];
+            /*store f[x:-,y:+,z:-] from nbr[x:0,y:+,z:0]*/
+            param.DDF[20*n+idx+pdy  ] = fni[ 6];
+            /*store f[x:0,y:+,z:-] from nbr[x:0,y:+,z:0]*/
+            param.DDF[19*n+idx+pdy  ] = fni[ 7];
+            /*store f[x:+,y:+,z:-] from nbr[x:+,y:+,z:0]*/
+            param.DDF[18*n+idx+pdxy ] = fni[ 8];
+
+            /*store f[x:-,y:-,z:0] from nbr[x:0,y:0,z:0]*/
+            param.DDF[17*n+idx      ] = fni[ 9];
+            /*store f[x:0,y:-,z:0] from nbr[x:0,y:0,z:0]*/
+            param.DDF[16*n+idx      ] = fni[10];
+            /*store f[x:+,y:-,z:0] from nbr[x:+,y:0,z:0]*/
+            param.DDF[15*n+idx+pdx  ] = fni[11];
+            /*store f[x:-,y:0,z:0] from nbr[x:0,y:0,z:0]*/
+            param.DDF[14*n+idx      ] = fni[12];
+            /*store f[x:0,y:0,z:0] from nbr[x:0,y:0,z:0]*/
+            param.DDF[13*n+idx      ] = fni[13];
+            /*store f[x:+,y:0,z:0] from nbr[x:+,y:0,z:0]*/
+            param.DDF[12*n+idx+pdx  ] = fni[14];
+            /*store f[x:-,y:+,z:0] from nbr[x:0,y:+,z:0]*/
+            param.DDF[11*n+idx+pdy  ] = fni[15];
+            /*store f[x:0,y:+,z:0] from nbr[x:0,y:+,z:0]*/
+            param.DDF[10*n+idx+pdy  ] = fni[16];
+            /*store f[x:+,y:+,z:0] from nbr[x:+,y:+,z:0]*/
+            param.DDF[ 9*n+idx+pdxy ] = fni[17];
+            
+            /*store f[x:-,y:-,z:+] from nbr[x:0,y:0,z:+]*/
+            param.DDF[ 8*n+idx+pdz  ] = fni[18];
+            /*store f[x:0,y:-,z:+] from nbr[x:0,y:0,z:+]*/
+            param.DDF[ 7*n+idx+pdz  ] = fni[19];
+            /*store f[x:+,y:-,z:+] from nbr[x:+,y:0,z:+]*/
+            param.DDF[ 6*n+idx+pdxz ] = fni[20];
+            /*store f[x:-,y:0,z:+] from nbr[x:0,y:0,z:+]*/
+            param.DDF[ 5*n+idx+pdz  ] = fni[21];
+            /*store f[x:0,y:0,z:+] from nbr[x:0,y:0,z:+]*/
+            param.DDF[ 4*n+idx+pdz  ] = fni[22];
+            /*store f[x:+,y:0,z:+] from nbr[x:+,y:0,z:+]*/
+            param.DDF[ 3*n+idx+pdxz ] = fni[23];
+            /*store f[x:-,y:+,z:+] from nbr[x:0,y:+,z:+]*/
+            param.DDF[ 2*n+idx+pdyz ] = fni[24];
+            /*store f[x:0,y:+,z:+] from nbr[x:0,y:+,z:+]*/
+            param.DDF[ 1*n+idx+pdyz ] = fni[25];
+            /*store f[x:+,y:+,z:+] from nbr[x:+,y:+,z:+]*/
+            param.DDF[ 0*n+idx+pdxyz] = fni[26];       
+        }
+    }
+
+    if((flagi & D3Q27SingleDDFSimulator::STORE_RHO_BIT) != 0)
+    {
+        param.rho[idx] = rhoi;
+    }
+
+    if((flagi & D3Q27SingleDDFSimulator::STORE_U_BIT) != 0)
+    {
+        param.vx[idx] = vxi;
+        param.vy[idx] = vyi;
+        param.vz[idx] = vzi;
     }
 }

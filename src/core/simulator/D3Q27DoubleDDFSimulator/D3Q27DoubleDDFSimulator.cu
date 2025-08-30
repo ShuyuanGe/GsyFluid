@@ -120,7 +120,7 @@ void D3Q27DoubleDDFSimulator::run(UInt step)
     cudaEventSynchronize(end);
     cudaEventElapsedTime(&ms, start, end);
     cu::check();
-    const float mlups = (static_cast<float>(size)*step/(1024*1024)) / (ms / 1000);
+    const float mlups = (static_cast<float>(size)*step/(1024*1024)) / (ms/1000);
     printf("[Info]: D3Q27DoubleDDFSimulator run, speed = %.2f (MLUPS)\n", mlups);
 }
 
