@@ -150,3 +150,9 @@ constexpr T divCeil(T num, T deno)
 {
     return (num+deno-1) / deno;
 }
+
+template<std::floating_point T>
+inline T distBall3D(T x, T y, T z, T cx, T cy, T cz)
+{
+    return std::sqrt((x-cx)*(x-cx)+(y-cy)*(y-cy)+(z-cz)*(z-cz));
+}

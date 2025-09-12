@@ -1,3 +1,4 @@
+#include "math.hpp"
 #include "stdafx.cuh"
 #include "cu_check.cuh"
 #include "cu_memory.cuh"
@@ -57,9 +58,15 @@ D3Q27BlockDDFSimulator::~D3Q27BlockDDFSimulator() noexcept
 void D3Q27BlockDDFSimulator::setup()
 {
     std::vector<Flag> domFlagBuf (domSize);
-    std::vector<Real> domVxBuf   (domSize, 0);
-    std::vector<Real> domVyBuf   (domSize, 0);
-    std::vector<Real> domVzBuf   (domSize, 0);
+    std::vector<Real> domRhoBuf  (domSize, dftRho);
+    std::vector<Real> domVxBuf   (domSize, dftV[0]);
+    std::vector<Real> domVyBuf   (domSize, dftV[1]);
+    std::vector<Real> domVzBuf   (domSize, dftV[2]);
+
+    const float ballCentX = domX / 4;
+    const float ballCentY = domY / 2;
+    const float ballCentZ = domZ / 2;
+    const float ballR = 40;
 
     for(Int i=0 ; i<domSize ; ++i)
     {
@@ -79,16 +86,23 @@ void D3Q27BlockDDFSimulator::setup()
         {
             domFlagBuf[i] = EQU_BC_FLAG;
         }
+        else if (distBall3D<Real>(x, y, z, ballCentX, ballCentY, ballCentZ) < ballR)
+        {
+            domFlagBuf[i] = BOUNCE_BACK_BC_FLAG;
+            domRhoBuf[i] = 0;
+        }
         else
         {
             domFlagBuf[i] = FLUID_FLAG;
         }
     }
 
+    cu::memcpy(getRhoPtr(), domRhoBuf.data(), domSize);
     cu::memcpy(getVxPtr(), domVxBuf.data(), domSize);
     cu::memcpy(getVyPtr(), domVyBuf.data(), domSize);
     cu::memcpy(getVzPtr(), domVzBuf.data(), domSize);
 
+    domRhoBuf.clear();
     domVxBuf.clear();
     domVyBuf.clear();
     domVzBuf.clear();
@@ -184,7 +198,7 @@ void D3Q27BlockDDFSimulator::run()
         param.blkZOff = zOff;
         param.blkFlag = getFlagPtr()+blkIdx*blkSize;
         //printf("xOff: %3d, yOff: %3d, zOff: %3d\n", xOff, yOff, zOff);
-        cudaLaunchCooperativeKernel((const void*)&D3Q27BlockDDFKernel, dim3{blkZ, 1, 1}, dim3{blkX, blkY, 1}, &kernelArgs[0], 0, stream);
+        cudaLaunchCooperativeKernel((const void*)&D3Q27BlockDDFKernel, dim3{gridX, gridY, gridZ}, dim3{blockX, blockY, blockZ}, &kernelArgs[0], 0, stream);
     }
     swapDDFPtr();
     ++timeStep;
@@ -197,7 +211,7 @@ void D3Q27BlockDDFSimulator::run()
 }
 
 #define defBlkX     static_cast<Int>(threadIdx.x)
-#define defBlkY     static_cast<Int>(threadIdx.y)
+#define defBlkY     static_cast<Int>(blockIdx.y*D3Q27BlockDDFSimulator::blockY+threadIdx.y)
 #define defBlkZ     static_cast<Int>(blockIdx.x)
 #define defBlkNx    static_cast<Int>(D3Q27BlockDDFSimulator::blkX)
 #define defBlkNy    static_cast<Int>(D3Q27BlockDDFSimulator::blkY)
@@ -358,7 +372,7 @@ __device__ __forceinline__ void D3Q27StoreDDF(Int idx, Int n, Real *ddf, const R
 }
 
 
-__launch_bounds__(defBlkNx*defBlkNy) __global__ void D3Q27BlockDDFKernel(const D3Q27BlockDDFKernelParam __grid_constant__ param)
+__launch_bounds__(D3Q27BlockDDFSimulator::blockX*D3Q27BlockDDFSimulator::blockY*D3Q27BlockDDFSimulator::blockZ) __global__ void D3Q27BlockDDFKernel(const D3Q27BlockDDFKernelParam __grid_constant__ param)
 {
     const Int blkIdx = defBlkX+defBlkNx*(defBlkY+defBlkNy*defBlkZ);
     const Int glbX   = param.blkXOff+defBlkX;

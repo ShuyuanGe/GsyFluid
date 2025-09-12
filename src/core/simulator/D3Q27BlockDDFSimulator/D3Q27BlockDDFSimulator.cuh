@@ -28,11 +28,19 @@ class D3Q27BlockDDFSimulator :
         static constexpr Int    domY = 256;
         static constexpr Int    domZ = 256;
         static constexpr Int    domSize = domX*domY*domZ;
-        static constexpr Int    blkX = 32;
-        static constexpr Int    blkY = 32;
-        static constexpr Int    blkZ = 80;
+
+        static constexpr Int    blockX  = 64;
+        static constexpr Int    blockY  = 16;
+        static constexpr Int    blockZ  = 1;
+        static constexpr Int    gridX   = 38;
+        static constexpr Int    gridY   = 3;
+        static constexpr Int    gridZ   = 1;
+
+        static constexpr Int    blkX = blockX;
+        static constexpr Int    blkY = gridY * blockY;
+        static constexpr Int    blkZ = gridX;
         static constexpr Int    blkSize = blkX*blkY*blkZ;
-        static constexpr Int    blkIter = 5;
+        static constexpr Int    blkIter = 4;
 
         static constexpr Flag   LOAD_DDF_BIT        = 1u << 0;
         static constexpr Flag   REV_LOAD_DDF_BIT    = 1u << 1;
