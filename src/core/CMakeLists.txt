@@ -1,3 +1,4 @@
+add_subdirectory(block_algorithm)
 add_subdirectory(simulator_component)
 add_subdirectory(simulator)
 add_subdirectory(velocity_set)

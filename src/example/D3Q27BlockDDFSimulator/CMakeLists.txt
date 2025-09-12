@@ -1,0 +1,2 @@
+add_executable(D3Q27BlockDDFSimulatorMain main.cu)
+target_link_libraries(D3Q27BlockDDFSimulatorMain D3Q27BlockDDFSimulatorLib cxx_precompile_header)

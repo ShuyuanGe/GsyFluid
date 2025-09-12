@@ -16,8 +16,6 @@ struct D3Q27DoubleDDFKernelParam
 
 __global__ void D3Q27DoubleDDFKernel(const D3Q27DoubleDDFKernelParam __grid_constant__ param);
 
-
-
 D3Q27DoubleDDFSimulator::D3Q27DoubleDDFSimulator(
     Real dftRho, 
     std::array<Real, 3> dftV

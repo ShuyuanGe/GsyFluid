@@ -1,0 +1,4 @@
+add_library(D3Q27BlockDDFSimulatorLib STATIC D3Q27BlockDDFSimulator.cu)
+target_include_directories(D3Q27BlockDDFSimulatorLib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(D3Q27BlockDDFSimulatorLib PUBLIC simulator_component collision cu_check cxx_precompile_header BlockAlgorithmLib)
+target_compile_options(D3Q27BlockDDFSimulatorLib PUBLIC --expt-relaxed-constexpr --extended-lambda)

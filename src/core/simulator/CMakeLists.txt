@@ -1,2 +1,3 @@
 add_subdirectory(D3Q27SingleDDFSimulator)
 add_subdirectory(D3Q27DoubleDDFSimulator)
+add_subdirectory(D3Q27BlockDDFSimulator)

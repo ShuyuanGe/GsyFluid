@@ -144,3 +144,9 @@ constexpr auto calcSum(const Arr& arr)
 {
     return detail::calcSum<0, N, Arr>(arr);
 }
+
+template<std::unsigned_integral T>
+constexpr T divCeil(T num, T deno)
+{
+    return (num+deno-1) / deno;
+}
